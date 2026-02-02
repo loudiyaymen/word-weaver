@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+.bun/
+
+# Build outputs
+dist/
+build/
+.output/
+
+# Environment variables
+*.env
+*.env.local
+
+# Docker
+.dockerignore
+
+# OS specific
+.DS_Store
+Thumbs.db

@@ -1,0 +1,55 @@
+services:
+  backend:
+    build: ./backend
+    container_name: ww_backend_c
+    ports:
+      - 4000:4000
+    volumes:
+      - ./backend:/backend
+      - /backend/node_modules
+    environment:
+      - DATABASE_URL=postgresql://ww_admin:ww_password@database:5432/ww_db
+      - OLLAMA_HOST=http://ollama:11434
+    depends_on:
+      database:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    container_name: ww_frontend_c
+    ports:
+      - 5173:5173
+    volumes:
+      - ./frontend:/frontend
+      - /frontend/node_modules
+    depends_on:
+      - backend
+
+  database:
+    image: postgres:15
+    container_name: postgres-db
+    environment:
+      - POSTGRES_DB=ww_db
+      - POSTGRES_USER=ww_admin
+      - POSTGRES_PASSWORD=ww_password
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ww_admin -d ww_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - ww_postgres_data:/var/lib/postgresql/data
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama_c
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+
+volumes:
+  ww_postgres_data:
+  ollama_data:
