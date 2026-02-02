@@ -7,14 +7,14 @@
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
-    "elysia": "latest",
     "@elysiajs/cors": "latest",
-    "drizzle-orm": "latest",
+    "drizzle-orm": "^0.45.1",
+    "elysia": "latest",
     "postgres": "latest",
     "zod": "latest"
   },
   "devDependencies": {
     "bun-types": "latest",
-    "drizzle-kit": "latest"
+    "drizzle-kit": "^0.31.8"
   }
 }
