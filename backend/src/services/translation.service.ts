@@ -45,14 +45,26 @@ export const TranslationService = {
     try {
       const response = await fetch(`${OLLAMA_HOST}/api/generate`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "qwen2.5:7b",
+          model: "qwen2.5:3b",
           prompt: `${systemPrompt}\n\nText to translate:\n${chapter.contentRaw}`,
           stream: false,
         }),
       });
 
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Ollama Error (${response.status}): ${errorText}`);
+      }
+
       const data: any = await response.json();
+
+      if (!data || !data.response) {
+        console.error("Invalid Ollama response structure:", data);
+        throw new Error("Ollama returned an empty or invalid response");
+      }
+
       const translatedText = data.response;
 
       await db

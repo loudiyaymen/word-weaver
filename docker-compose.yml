@@ -9,7 +9,7 @@ services:
       - /backend/node_modules
     environment:
       - DATABASE_URL=postgresql://ww_admin:ww_password@database:5432/ww_db
-      - OLLAMA_HOST=http://ollama:11434
+      - OLLAMA_HOST=http://host.docker.internal:11434
     depends_on:
       database:
         condition: service_healthy
@@ -42,14 +42,5 @@ services:
     volumes:
       - ww_postgres_data:/var/lib/postgresql/data
 
-  ollama:
-    image: ollama/ollama:latest
-    container_name: ollama_c
-    volumes:
-      - ollama_data:/root/.ollama
-    ports:
-      - "11434:11434"
-
 volumes:
   ww_postgres_data:
-  ollama_data:

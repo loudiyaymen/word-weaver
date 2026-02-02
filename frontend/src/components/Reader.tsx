@@ -13,30 +13,28 @@ export const Reader = ({ chapterId }: { chapterId: number }) => {
   const [chapter, setChapter] = useState<Chapter | null>(null);
 
   useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+
     const fetchChapter = async () => {
       try {
         const res = await fetch(`http://localhost:4000/chapters/${chapterId}`);
-
-        if (!res.ok) {
-          const errorData = await res.json().catch(() => ({}));
-          console.warn("Chapter fetch failed:", res.status, errorData);
-          return;
-        }
+        if (!res.ok) return;
 
         const data = await res.json();
         setChapter(data);
 
-        if (data.status === "translating" || data.status === "pending") {
-          setTimeout(fetchChapter, 3000);
+        // Keep polling if it's NOT completed and NOT failed
+        if (data.status !== "completed" && data.status !== "failed") {
+          timer = setTimeout(fetchChapter, 2000);
         }
       } catch (e) {
-        console.error("Reader network/parsing error:", e);
+        console.error("Polling error:", e);
       }
     };
 
     fetchChapter();
+    return () => clearTimeout(timer); // Cleanup on unmount
   }, [chapterId]);
-
   if (!chapter)
     return <div className="p-8 text-center">Loading chapter...</div>;
 
