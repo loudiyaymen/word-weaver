@@ -1,1 +1,12 @@
 @import "tailwindcss";
+
+.status-transition {
+  transition: all 0.3s ease-in-out;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-300 rounded;
+}
