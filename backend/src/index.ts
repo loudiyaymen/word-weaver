@@ -1,6 +1,7 @@
 import { Elysia, t } from "elysia";
 import { cors } from "@elysiajs/cors";
 import { NovelService } from "./services/novel.service";
+import { TranslationService } from "./services/translation.service";
 
 const app = new Elysia()
   .use(cors())
@@ -35,6 +36,37 @@ const app = new Elysia()
           }),
         },
       ),
+  )
+  .group("/chapters", (app) =>
+    app.post(
+      "/:id/translate",
+      async ({ params }) => {
+        const id = parseInt(params.id);
+        TranslationService.translateChapter(id).catch(console.error);
+
+        return { message: "Translation started" };
+      },
+      {
+        params: t.Object({ id: t.String() }),
+      },
+    ),
+  )
+  .post(
+    "/:id/glossary",
+    ({ params, body }) => {
+      return NovelService.addGlossaryTerm({
+        novelId: parseInt(params.id),
+        ...body,
+      });
+    },
+    {
+      params: t.Object({ id: t.String() }),
+      body: t.Object({
+        chineseTerm: t.String(),
+        englishTerm: t.String(),
+        notes: t.Optional(t.String()),
+      }),
+    },
   )
   .listen(4000);
 

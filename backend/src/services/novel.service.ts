@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { novels, chapters } from "../db/schema";
+import { novels, chapters, glossary } from "../db/schema";
 import { eq, desc, and } from "drizzle-orm";
 
 export const NovelService = {
@@ -40,5 +40,14 @@ export const NovelService = {
       .returning();
 
     return newChapter;
+  },
+  async addGlossaryTerm(data: {
+    novelId: number;
+    chineseTerm: string;
+    englishTerm: string;
+    notes?: string;
+  }) {
+    const [term] = await db.insert(glossary).values(data).returning();
+    return term;
   },
 };
