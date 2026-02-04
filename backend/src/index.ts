@@ -88,6 +88,18 @@ const app = new Elysia()
         {
           params: t.Object({ id: t.String() }),
         },
+      )
+      .get(
+        "/:id/glossary",
+        async ({ params }) => {
+          return db.query.glossary.findMany({
+            where: (glossary, { eq }) =>
+              eq(glossary.novelId, parseInt(params.id)),
+          });
+        },
+        {
+          params: t.Object({ id: t.String() }),
+        },
       ),
   )
   .listen(4000);
