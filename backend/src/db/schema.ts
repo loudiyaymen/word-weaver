@@ -29,6 +29,7 @@ export const chapters = pgTable(
     contentRaw: text("content_raw").notNull(),
     contentTranslated: text("content_translated"),
     status: text("status").default("pending").notNull(),
+    progress: integer("progress").default(0),
     createdAt: timestamp("created_at").defaultNow(),
   },
   (t) => [unique("novel_chapter_unique_idx").on(t.novelId, t.chapterNumber)],
