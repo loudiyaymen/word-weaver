@@ -1,10 +1,14 @@
 import { useState } from "react";
 import { Reader } from "./components/Reader";
+import { GlossaryPage } from "./pages/GlossaryPage";
 
 function App() {
   const [novelId, setNovelId] = useState<number | null>(null);
   const [activeChapterId, setActiveChapterId] = useState<number | null>(null);
   const [rawInput, setRawInput] = useState("");
+  const [view, setView] = useState<"dashboard" | "glossary" | "reader">(
+    "dashboard",
+  );
 
   const createNovel = async () => {
     const res = await fetch("http://localhost:4000/novels", {
@@ -33,19 +37,19 @@ function App() {
     });
 
     setActiveChapterId(chapter.id);
+    setView("reader");
   };
 
-  if (activeChapterId) {
+  // View Logic
+  if (view === "reader" && activeChapterId) {
     return (
-      <>
-        <button
-          onClick={() => setActiveChapterId(null)}
-          className="fixed bottom-6 right-6 z-50 bg-slate-800 text-white px-4 py-2 rounded-full shadow-lg hover:bg-slate-700 transition-colors"
-        >
-          Close Reader
-        </button>
-        <Reader chapterId={activeChapterId} />
-      </>
+      <Reader chapterId={activeChapterId} onBack={() => setView("dashboard")} />
+    );
+  }
+
+  if (view === "glossary" && novelId) {
+    return (
+      <GlossaryPage novelId={novelId} onBack={() => setView("dashboard")} />
     );
   }
 
@@ -63,15 +67,25 @@ function App() {
           </button>
         ) : (
           <div className="space-y-4">
-            <label className="block text-sm font-medium text-slate-600 uppercase tracking-wider">
-              Paste Chinese Chapter Content
-            </label>
+            <div className="flex justify-between items-center">
+              <label className="block text-sm font-medium text-slate-600 uppercase tracking-wider">
+                Paste Chinese Content
+              </label>
+              <button
+                onClick={() => setView("glossary")}
+                className="text-sm text-blue-600 hover:underline"
+              >
+                Manage Glossary
+              </button>
+            </div>
+
             <textarea
               className="w-full h-64 p-4 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all font-serif"
               placeholder="Paste raw text here..."
               value={rawInput}
               onChange={(e) => setRawInput(e.target.value)}
             />
+
             <button
               onClick={submitChapter}
               className="w-full bg-slate-900 text-white font-semibold py-3 rounded-lg hover:bg-slate-800 transition-colors"
