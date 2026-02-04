@@ -36,7 +36,6 @@ export const GlossaryPage = ({
     }
   }, [novelId]);
 
-  // Use the effect to trigger the fetch on mount/id change
   useEffect(() => {
     let ignore = false;
 
@@ -55,7 +54,7 @@ export const GlossaryPage = ({
     return () => {
       ignore = true;
     };
-  }, [novelId]); // Depend on novelId directly to satisfy "synchronous" check
+  }, [novelId]);
 
   const addTerm = async (e: React.FormEvent) => {
     e.preventDefault();
