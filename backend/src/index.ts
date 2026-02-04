@@ -100,6 +100,19 @@ const app = new Elysia()
         {
           params: t.Object({ id: t.String() }),
         },
+      )
+      .get(
+        "/:id/chapters",
+        async ({ params }) => {
+          return db.query.chapters.findMany({
+            where: (chapters, { eq }) =>
+              eq(chapters.novelId, parseInt(params.id)),
+            orderBy: (chapters, { desc }) => [desc(chapters.chapterNumber)],
+          });
+        },
+        {
+          params: t.Object({ id: t.String() }),
+        },
       ),
   )
   .listen(4000);
