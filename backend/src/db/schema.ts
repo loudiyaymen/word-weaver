@@ -13,6 +13,7 @@ export const novels = pgTable("novels", {
   title: text("title").notNull(),
   author: text("author"),
   description: text("description"),
+  coverUrl: text("cover_url"),
   sourceUrl: text("source_url"),
   createdAt: timestamp("created_at").defaultNow(),
 });
