@@ -3,20 +3,38 @@ import { cors } from "@elysiajs/cors";
 import { NovelService } from "./services/novel.service";
 import { TranslationService } from "./services/translation.service";
 import { db } from "./db";
-import { chapters } from "./db/schema";
-import { eq } from "drizzle-orm";
+import { chapters, novels, glossary } from "./db/schema";
+import { eq, desc } from "drizzle-orm";
 
 const app = new Elysia()
   .use(cors())
   .get("/", () => "API is online")
+
   .group("/novels", (app) =>
     app
+      .get("/", async () => {
+        return db.query.novels.findMany({
+          orderBy: [desc(novels.createdAt)],
+        });
+      })
       .post("/", ({ body }) => NovelService.createNovel(body), {
         body: t.Object({
           title: t.String(),
           author: t.Optional(t.String()),
+          coverUrl: t.Optional(t.String()),
           sourceUrl: t.Optional(t.String()),
         }),
+      })
+      .get("/:id/chapters", async ({ params }) => {
+        return db.query.chapters.findMany({
+          where: eq(chapters.novelId, parseInt(params.id)),
+          orderBy: [desc(chapters.chapterNumber)],
+        });
+      })
+      .get("/:id/glossary", async ({ params }) => {
+        return db.query.glossary.findMany({
+          where: eq(glossary.novelId, parseInt(params.id)),
+        });
       })
       .post(
         "/:id/chapters",
@@ -53,32 +71,25 @@ const app = new Elysia()
         },
       ),
   )
+
   .group("/chapters", (app) =>
     app
       .get(
         "/:id",
         async ({ params, set }) => {
-          // Changed 'error' to 'set' for standard status setting
           const id = parseInt(params.id);
-
           const chapter = await db.query.chapters.findFirst({
-            // Explicitly typing the callback parameters for Drizzle
-            where: (chapters: any, { eq }: any) => eq(chapters.id, id),
-            with: {
-              novel: true,
-            },
+            where: eq(chapters.id, id),
+            with: { novel: true },
           });
 
           if (!chapter) {
             set.status = 404;
-            return { error: "Chapter not found in database" };
+            return { error: "Chapter not found" };
           }
-
           return chapter;
         },
-        {
-          params: t.Object({ id: t.String() }),
-        },
+        { params: t.Object({ id: t.String() }) },
       )
       .post(
         "/:id/translate",
@@ -87,34 +98,7 @@ const app = new Elysia()
           TranslationService.translateChapter(id).catch(console.error);
           return { message: "Translation started" };
         },
-        {
-          params: t.Object({ id: t.String() }),
-        },
-      )
-      .get(
-        "/:id/glossary",
-        async ({ params }) => {
-          return db.query.glossary.findMany({
-            where: (glossary, { eq }) =>
-              eq(glossary.novelId, parseInt(params.id)),
-          });
-        },
-        {
-          params: t.Object({ id: t.String() }),
-        },
-      )
-      .get(
-        "/:id/chapters",
-        async ({ params }) => {
-          return db.query.chapters.findMany({
-            where: (chapters, { eq }) =>
-              eq(chapters.novelId, parseInt(params.id)),
-            orderBy: (chapters, { desc }) => [desc(chapters.chapterNumber)],
-          });
-        },
-        {
-          params: t.Object({ id: t.String() }),
-        },
+        { params: t.Object({ id: t.String() }) },
       )
       .patch(
         "/:id/progress",
