@@ -1,87 +1,76 @@
 import { db } from "../db";
 import { chapters, glossary } from "../db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
-const OLLAMA_HOST = process.env.OLLAMA_HOST || "http://ollama:11434";
-
-export const TranslationService = {
-  async translateChapter(chapterId: number) {
-    const chapter = await db.query.chapters.findFirst({
-      where: eq(chapters.id, chapterId),
-      with: { novel: true },
-    });
-
-    if (!chapter) throw new Error("Chapter not found");
-
-    const novelGlossary = await db.query.glossary.findMany({
-      where: eq(glossary.novelId, chapter.novelId),
-    });
-
-    const glossaryContext = novelGlossary
-      .map(
-        (g) =>
-          `- ${g.chineseTerm}: ${g.englishTerm}${g.notes ? ` (${g.notes})` : ""}`,
-      )
-      .join("\n");
-
-    const systemPrompt = `
-    You are a professional Chinese-to-English webnovel translator.
-    IDIOM RULE:
-    - You must translate Chinese idioms (Chengyu) LITERALLY. 
-    - For example: "井底之蛙" should be "a frog at the bottom of a well", NOT "narrow-minded".
-    - "山外有山" should be "there are mountains beyond mountains", NOT "there is always someone better".
-    
-    GLOSSARY (Use these exact terms):
-    \${glossaryContext || "No specific terms defined yet."}
-    Translate the following text accurately while maintaining the original tone.
-
-        `;
-
-    await db
-      .update(chapters)
-      .set({ status: "translating" })
-      .where(eq(chapters.id, chapterId));
-
+export class TranslationService {
+  static async translateChapter(chapterId: number) {
     try {
-      const response = await fetch(`${OLLAMA_HOST}/api/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "qwen2.5:3b",
-          prompt: `${systemPrompt}\n\nText to translate:\n${chapter.contentRaw}`,
-          stream: false,
-        }),
+      const chapter = await db.query.chapters.findFirst({
+        where: eq(chapters.id, chapterId),
+        with: { novel: true },
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Ollama Error (${response.status}): ${errorText}`);
-      }
+      if (!chapter) throw new Error("Chapter not found");
+
+      const allTerms = await db.query.glossary.findMany({
+        where: eq(glossary.novelId, chapter.novelId),
+      });
+
+      const relevantTerms = allTerms.filter((term) =>
+        chapter.contentRaw.includes(term.chineseTerm),
+      );
+
+      const glossaryContext =
+        relevantTerms.length > 0
+          ? `\nRELEVANT GLOSSARY FOR THIS CHAPTER:\n${relevantTerms.map((t) => `- ${t.chineseTerm}: ${t.englishTerm} (${t.notes || "No notes"})`).join("\n")}`
+          : "";
+
+      const systemPrompt = `You are a professional webnovel translator specialized in Xianxia/Wuxia. 
+Your goal is to translate the following Chinese text into English.
+
+STRICT RULES:
+1. LITERALLY translate all Chinese Idioms (Chengyu). Do not use English equivalents. For example, if the text says "to have eyes but not see Mt. Tai," use that exactly.
+2. Use the provided glossary terms exactly as defined.
+3. Maintain a formal, epic tone.
+${glossaryContext}
+
+Translate only the story content. Do not include any explanations or notes in the output.`;
+
+      await db
+        .update(chapters)
+        .set({ status: "translating" })
+        .where(eq(chapters.id, chapterId));
+
+      const response = await fetch(
+        `http://host.docker.internal:11434/api/generate`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "qwen2.5:7b",
+            prompt: `${systemPrompt}\n\nCONTENT TO TRANSLATE:\n${chapter.contentRaw}`,
+            stream: false,
+          }),
+        },
+      );
 
       const data: any = await response.json();
-
-      if (!data || !data.response) {
-        console.error("Invalid Ollama response structure:", data);
-        throw new Error("Ollama returned an empty or invalid response");
-      }
-
-      const translatedText = data.response;
 
       await db
         .update(chapters)
         .set({
-          contentTranslated: translatedText,
+          contentTranslated: data.response,
           status: "completed",
         })
         .where(eq(chapters.id, chapterId));
 
-      return translatedText;
+      console.log(`Successfully translated Chapter ${chapter.chapterNumber}`);
     } catch (error) {
+      console.error("Translation failed:", error);
       await db
         .update(chapters)
         .set({ status: "failed" })
         .where(eq(chapters.id, chapterId));
-      throw error;
     }
-  },
-};
+  }
+}
