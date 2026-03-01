@@ -3,8 +3,9 @@ import { cors } from "@elysiajs/cors";
 import { NovelService } from "./services/novel.service";
 import { TranslationService } from "./services/translation.service";
 import { db } from "./db";
-import { chapters, novels, glossary } from "./db/schema";
+import { chapters, novels, glossary, worldBible } from "./db/schema";
 import { eq, desc } from "drizzle-orm";
+import { EmbeddingService } from "./services/embedding.service";
 
 const app = new Elysia()
   .use(cors())
@@ -67,6 +68,44 @@ const app = new Elysia()
             chineseTerm: t.String(),
             englishTerm: t.String(),
             notes: t.Optional(t.String()),
+          }),
+        },
+      )
+      .get(
+        "/:id/world-bible",
+        async ({ params }) => {
+          return db.query.worldBible.findMany({
+            where: eq(worldBible.novelId, parseInt(params.id)),
+            orderBy: (wb, { desc }) => [desc(wb.createdAt)],
+          });
+        },
+        {
+          params: t.Object({ id: t.String() }),
+        },
+      )
+      .post(
+        "/:id/world-bible",
+        async ({ params, body }) => {
+          const embedding = await EmbeddingService.generate(body.content);
+          const entry = await db
+            .insert(worldBible)
+            .values({
+              novelId: parseInt(params.id),
+              category: body.category,
+              key: body.key,
+              content: body.content,
+              embedding: embedding,
+            })
+            .returning();
+
+          return entry[0];
+        },
+        {
+          params: t.Object({ id: t.String() }),
+          body: t.Object({
+            category: t.String(),
+            key: t.String(),
+            content: t.String(),
           }),
         },
       ),

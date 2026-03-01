@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Reader } from "./components/Reader";
 import { GlossaryPage } from "./pages/GlossaryPage";
+import { WorldBiblePage } from "./pages/WorldBiblePage";
 
 interface Novel {
   id: number;
@@ -20,8 +21,9 @@ interface ChapterSummary {
 
 function App() {
   // Navigation & Core State (might change to react router)
+  //might need to create an enum for this or smth
   const [view, setView] = useState<
-    "library" | "dashboard" | "glossary" | "reader"
+    "library" | "dashboard" | "glossary" | "reader" | "bible"
   >("library");
   const [novels, setNovels] = useState<Novel[]>([]);
   const [selectedNovel, setSelectedNovel] = useState<Novel | null>(null);
@@ -160,7 +162,14 @@ function App() {
       />
     );
   }
-
+  if (view === "bible" && selectedNovel) {
+    return (
+      <WorldBiblePage
+        novelId={selectedNovel.id}
+        onBack={() => setView("dashboard")}
+      />
+    );
+  }
   if (view === "glossary" && selectedNovel) {
     return (
       <GlossaryPage
@@ -290,12 +299,20 @@ function App() {
             <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
               <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-bold">{selectedNovel?.title}</h1>
-                <button
-                  onClick={() => setView("glossary")}
-                  className="text-blue-600 font-medium hover:underline"
-                >
-                  Glossary
-                </button>
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => setView("bible")}
+                    className="text-blue-600 font-medium hover:underline"
+                  >
+                    World Bible
+                  </button>
+                  <button
+                    onClick={() => setView("glossary")}
+                    className="text-blue-600 font-medium hover:underline"
+                  >
+                    Glossary
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-4 gap-4 mb-4">
