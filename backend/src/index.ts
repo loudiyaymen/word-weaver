@@ -6,6 +6,8 @@ import { db } from "./db";
 import { chapters, novels, glossary, worldBible } from "./db/schema";
 import { eq, desc } from "drizzle-orm";
 import { EmbeddingService } from "./services/embedding.service";
+import { translationQueue } from "./queues/translation.queue";
+import "./queues/translation.queue";
 
 const app = new Elysia()
   .use(cors())
@@ -134,10 +136,14 @@ const app = new Elysia()
         "/:id/translate",
         async ({ params }) => {
           const id = parseInt(params.id);
-          TranslationService.translateChapter(id).catch(console.error);
-          return { message: "Translation started" };
+          await translationQueue.add("translate-chapter", { chapterId: id });
+          return {
+            message: "Translation queued successfully. Running in background.",
+          };
         },
-        { params: t.Object({ id: t.String() }) },
+        {
+          params: t.Object({ id: t.String() }),
+        },
       )
       .patch(
         "/:id/progress",
