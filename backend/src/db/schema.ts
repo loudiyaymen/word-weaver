@@ -5,9 +5,9 @@ import {
   integer,
   timestamp,
   unique,
+  vector,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
-
 export const novels = pgTable("novels", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
@@ -51,6 +51,7 @@ export const glossary = pgTable("glossary", {
 export const novelsRelations = relations(novels, ({ many }) => ({
   chapters: many(chapters),
   glossaryTerms: many(glossary),
+  worldBible: many(worldBible),
 }));
 
 export const chaptersRelations = relations(chapters, ({ one }) => ({
@@ -63,6 +64,21 @@ export const chaptersRelations = relations(chapters, ({ one }) => ({
 export const glossaryRelations = relations(glossary, ({ one }) => ({
   novel: one(novels, {
     fields: [glossary.novelId],
+    references: [novels.id],
+  }),
+}));
+export const worldBible = pgTable("world_bible", {
+  id: serial("id").primaryKey(),
+  novelId: integer("novel_id").references(() => novels.id),
+  category: text("category"),
+  key: text("key").notNull(),
+  content: text("content").notNull(),
+  embedding: vector("embedding", { dimensions: 768 }),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+export const worldBibleRelations = relations(worldBible, ({ one }) => ({
+  novel: one(novels, {
+    fields: [worldBible.novelId],
     references: [novels.id],
   }),
 }));

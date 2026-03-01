@@ -19,7 +19,7 @@ interface ChapterSummary {
 }
 
 function App() {
-  // Navigation & Core State
+  // Navigation & Core State (might change to react router)
   const [view, setView] = useState<
     "library" | "dashboard" | "glossary" | "reader"
   >("library");

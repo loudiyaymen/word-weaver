@@ -8,8 +8,11 @@
   },
   "dependencies": {
     "@elysiajs/cors": "latest",
+    "bullmq": "^5.70.1",
     "drizzle-orm": "^0.45.1",
     "elysia": "latest",
+    "ioredis": "^5.10.0",
+    "pgvector": "^0.2.1",
     "postgres": "latest",
     "zod": "latest"
   },
