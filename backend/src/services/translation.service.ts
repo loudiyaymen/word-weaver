@@ -1,6 +1,7 @@
 import { db } from "../db";
 import { chapters, glossary } from "../db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
+import { RAGService } from "./rag.service";
 
 export class TranslationService {
   static async translateChapter(chapterId: number) {
@@ -25,6 +26,19 @@ export class TranslationService {
           ? `\nRELEVANT GLOSSARY FOR THIS CHAPTER:\n${relevantTerms.map((t) => `- ${t.chineseTerm}: ${t.englishTerm} (${t.notes || "No notes"})`).join("\n")}`
           : "";
 
+      const worldBibleContext = await RAGService.getContextForChapter(
+        chapter.novelId,
+        chapter.contentRaw,
+      );
+
+      let bibleContextString = "";
+      if (worldBibleContext && worldBibleContext.length > 0) {
+        bibleContextString = `\nWORLD BIBLE LORE (Use these descriptions to inform the tone and context of your translation):\n`;
+        worldBibleContext.forEach((entry: any) => {
+          bibleContextString += `- [${entry.category}] ${entry.entry_name}: ${entry.content}\n`;
+        });
+      }
+
       const systemPrompt = `You are a professional webnovel translator specialized in Xianxia/Wuxia. 
 Your goal is to translate the following Chinese text into English.
 
@@ -33,6 +47,7 @@ STRICT RULES:
 2. Use the provided glossary terms exactly as defined.
 3. Maintain a formal, epic tone.
 ${glossaryContext}
+${bibleContextString}
 
 Translate only the story content. Do not include any explanations or notes in the output.`;
 
