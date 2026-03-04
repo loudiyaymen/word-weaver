@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Reader } from "./components/Reader";
 import { GlossaryPage } from "./pages/GlossaryPage";
 import { WorldBiblePage } from "./pages/WorldBiblePage";
+import { NovelDetail } from "./pages/NovelDetail";
 
 interface Novel {
   id: number;
@@ -20,8 +21,6 @@ interface ChapterSummary {
 }
 
 function App() {
-  // Navigation & Core State (might change to react router)
-  //might need to create an enum for this or smth
   const [view, setView] = useState<
     "library" | "dashboard" | "glossary" | "reader" | "bible"
   >("library");
@@ -31,6 +30,8 @@ function App() {
   const [chapters, setChapters] = useState<ChapterSummary[]>([]);
 
   const [showNovelModal, setShowNovelModal] = useState(false);
+  const [showChapterModal, setShowChapterModal] = useState(false);
+
   const [newNovel, setNewNovel] = useState({
     title: "",
     author: "",
@@ -112,7 +113,41 @@ function App() {
     };
   }, [selectedNovel]);
 
-  const handleCreateNovel = async (e: React.FormEvent) => {
+  const handleBatchTranslate = async () => {
+    if (!selectedNovel) return;
+
+    if (
+      !window.confirm("Queue all pending chapters for background translation?")
+    )
+      return;
+
+    const res = await fetch(
+      `http://localhost:4000/novels/${selectedNovel.id}/translate-pending`,
+      {
+        method: "POST",
+      },
+    );
+
+    if (res.ok) {
+      fetchChapters(selectedNovel.id);
+    }
+  };
+
+  const handleDeleteChapter = async (id: number) => {
+    if (
+      !window.confirm("Are you sure you want to delete this chapter forever?")
+    )
+      return;
+
+    const res = await fetch(`http://localhost:4000/chapters/${id}`, {
+      method: "DELETE",
+    });
+    if (res.ok && selectedNovel) {
+      fetchChapters(selectedNovel.id);
+    }
+  };
+
+  const handleCreateNovel = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     const res = await fetch("http://localhost:4000/novels", {
       method: "POST",
@@ -126,7 +161,8 @@ function App() {
     }
   };
 
-  const handleSubmitChapter = async () => {
+  const handleSubmitChapter = async (e: React.SubmitEvent<HTMLFormElement>) => {
+    e.preventDefault();
     if (!selectedNovel) return;
     const res = await fetch(
       `http://localhost:4000/novels/${selectedNovel.id}/chapters`,
@@ -140,15 +176,13 @@ function App() {
         }),
       },
     );
-    const chapter = await res.json();
-    fetch(`http://localhost:4000/chapters/${chapter.id}/translate`, {
-      method: "POST",
-    });
 
-    setActiveChapterId(chapter.id);
-    setView("reader");
-    setRawInput("");
-    setChapterTitle("");
+    if (res.ok) {
+      setShowChapterModal(false);
+      setRawInput("");
+      setChapterTitle("");
+      fetchChapters(selectedNovel.id);
+    }
   };
 
   if (view === "reader" && activeChapterId) {
@@ -162,17 +196,19 @@ function App() {
       />
     );
   }
-  if (view === "bible" && selectedNovel) {
+
+  if (view === "glossary" && selectedNovel) {
     return (
-      <WorldBiblePage
+      <GlossaryPage
         novelId={selectedNovel.id}
         onBack={() => setView("dashboard")}
       />
     );
   }
-  if (view === "glossary" && selectedNovel) {
+
+  if (view === "bible" && selectedNovel) {
     return (
-      <GlossaryPage
+      <WorldBiblePage
         novelId={selectedNovel.id}
         onBack={() => setView("dashboard")}
       />
@@ -284,39 +320,33 @@ function App() {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-5xl mx-auto">
-        <button
-          onClick={() => setView("library")}
-          className="mb-6 text-slate-500 hover:text-slate-800 flex items-center gap-2"
-        >
-          Back to Library
-        </button>
+  if (selectedNovel) {
+    return (
+      <>
+        <NovelDetail
+          novel={selectedNovel}
+          chapters={chapters}
+          onBack={() => setView("library")}
+          onTranslate={(id: number) => {
+            setActiveChapterId(id);
+            setView("reader");
+          }}
+          onGlossary={() => setView("glossary")}
+          onDeleteChapter={handleDeleteChapter}
+          onBatchTranslate={handleBatchTranslate}
+          onAddChapter={() => setShowChapterModal(true)}
+        />
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="md:col-span-2 space-y-6">
-            <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
-              <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-bold">{selectedNovel?.title}</h1>
-                <div className="flex gap-4">
-                  <button
-                    onClick={() => setView("bible")}
-                    className="text-blue-600 font-medium hover:underline"
-                  >
-                    World Bible
-                  </button>
-                  <button
-                    onClick={() => setView("glossary")}
-                    className="text-blue-600 font-medium hover:underline"
-                  >
-                    Glossary
-                  </button>
-                </div>
-              </div>
+        {showChapterModal && (
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <form
+              onSubmit={handleSubmitChapter}
+              className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-2xl flex flex-col max-h-[90vh]"
+            >
+              <h2 className="text-2xl font-bold mb-6">Add New Chapter</h2>
 
-              <div className="grid grid-cols-4 gap-4 mb-4">
-                <div className="col-span-1">
+              <div className="flex gap-4 mb-4">
+                <div className="w-1/4">
                   <label className="text-[10px] font-bold text-slate-400 uppercase">
                     Number
                   </label>
@@ -325,73 +355,59 @@ function App() {
                     className="w-full p-2 border rounded"
                     value={chapterNum}
                     onChange={(e) => setChapterNum(parseInt(e.target.value))}
+                    required
                   />
                 </div>
-                <div className="col-span-3">
+                <div className="flex-1">
                   <label className="text-[10px] font-bold text-slate-400 uppercase">
-                    Title
+                    Title (Optional)
                   </label>
                   <input
                     type="text"
                     className="w-full p-2 border rounded"
-                    placeholder="Chapter Title"
+                    placeholder="e.g. The Awakening"
                     value={chapterTitle}
                     onChange={(e) => setChapterTitle(e.target.value)}
                   />
                 </div>
               </div>
 
-              <textarea
-                className="w-full h-64 p-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-serif mb-4"
-                placeholder="Paste Chinese text here..."
-                value={rawInput}
-                onChange={(e) => setRawInput(e.target.value)}
-              />
-              <button
-                onClick={handleSubmitChapter}
-                className="w-full bg-slate-900 text-white font-bold py-3 rounded-xl hover:bg-slate-800 transition-colors"
-              >
-                Translate Chapter
-              </button>
-            </div>
-          </div>
+              <div className="flex-1 overflow-hidden flex flex-col">
+                <label className="text-[10px] font-bold text-slate-400 uppercase mb-1">
+                  Raw Chinese Content
+                </label>
+                <textarea
+                  className="w-full flex-1 p-4 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-serif resize-none min-h-50"
+                  placeholder="Paste raw text here..."
+                  value={rawInput}
+                  onChange={(e) => setRawInput(e.target.value)}
+                  required
+                />
+              </div>
 
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm h-fit">
-            <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">
-              History
-            </h2>
-            <div className="space-y-3 max-h-125 overflow-y-auto pr-2">
-              {chapters.map((ch) => (
+              <div className="flex gap-3 mt-6 shrink-0">
                 <button
-                  key={ch.id}
-                  onClick={() => {
-                    setActiveChapterId(ch.id);
-                    setView("reader");
-                  }}
-                  className="w-full text-left p-3 rounded-xl border border-slate-100 hover:bg-slate-50 transition-all"
+                  type="button"
+                  onClick={() => setShowChapterModal(false)}
+                  className="flex-1 px-4 py-3 border rounded-xl font-bold text-slate-600 hover:bg-slate-50 transition-colors"
                 >
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="font-bold text-slate-700 text-sm">
-                      Ch. {ch.chapterNumber}
-                    </span>
-                    <span className="text-[10px] text-slate-400">
-                      {ch.progress}%
-                    </span>
-                  </div>
-                  <div className="w-full bg-slate-100 h-1 rounded-full overflow-hidden">
-                    <div
-                      className="bg-blue-500 h-full"
-                      style={{ width: `${ch.progress}%` }}
-                    />
-                  </div>
+                  Cancel
                 </button>
-              ))}
-            </div>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors"
+                >
+                  Save as Pending
+                </button>
+              </div>
+            </form>
           </div>
-        </div>
-      </div>
-    </div>
-  );
+        )}
+      </>
+    );
+  }
+
+  return null;
 }
 
 export default App;

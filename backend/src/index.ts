@@ -4,7 +4,7 @@ import { NovelService } from "./services/novel.service";
 import { TranslationService } from "./services/translation.service";
 import { db } from "./db";
 import { chapters, novels, glossary, worldBible } from "./db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { EmbeddingService } from "./services/embedding.service";
 import { translationQueue } from "./queues/translation.queue";
 import "./queues/translation.queue";
@@ -109,6 +109,36 @@ const app = new Elysia()
             key: t.String(),
             content: t.String(),
           }),
+        },
+      )
+      .post(
+        "/:id/translate-pending",
+        async ({ params }) => {
+          const novelId = parseInt(params.id);
+          const pendingChapters = await db.query.chapters.findMany({
+            where: and(
+              eq(chapters.novelId, novelId),
+              eq(chapters.status, "pending"),
+            ),
+          });
+
+          for (const ch of pendingChapters) {
+            await db
+              .update(chapters)
+              .set({ status: "queued" })
+              .where(eq(chapters.id, ch.id));
+
+            await translationQueue.add("translate-chapter", {
+              chapterId: ch.id,
+            });
+          }
+
+          return {
+            message: `Queued ${pendingChapters.length} chapters for translation.`,
+          };
+        },
+        {
+          params: t.Object({ id: t.String() }),
         },
       ),
   )
