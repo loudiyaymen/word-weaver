@@ -113,6 +113,21 @@ function App() {
     };
   }, [selectedNovel]);
 
+  useEffect(() => {
+    if (!selectedNovel) return;
+
+    const isProcessing = chapters.some(
+      (ch) => ch.status === "queued" || ch.status === "translating",
+    );
+    if (!isProcessing) return;
+
+    const interval = setInterval(() => {
+      fetchChapters(selectedNovel.id);
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [selectedNovel, chapters, fetchChapters]);
+
   const handleBatchTranslate = async () => {
     if (!selectedNovel) return;
 
